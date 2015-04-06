@@ -43,7 +43,7 @@
 (defn dealer-turn
   [hand hit]
   (loop [hand hand]
-    (let [{:keys [score soft?]} (score-hand hand)]
+    (let [{:keys [score soft?]} (s/score-hand hand)]
       (cond (< score 17) (recur (conj hand (hit)))
             (and soft? (= score 17)) (recur (conj hand (hit)))
             :default hand))))
@@ -69,7 +69,7 @@
   (let [deck (deck)
         hands {:dealer (deal-hand deck)
                :player (deal-hand deck)}]
-    (if-let [result (check-blackjack hands)]
+    (if-let [result (s/check-blackjack hands)]
       (blackjack-return result)
       (let [pl-tran (player-turn (h/->player-state
                                    (:player hands)
@@ -79,17 +79,72 @@
             last-tran (last pl-tran)]
         (if (nil? (:result last-tran))
           (let [dealer (dealer-turn (:dealer hands) deck)
-                player-score (:score (score-hand (get-in last-tran [:start :player])))
-                dealer-score (:score (score-hand dealer))
+                player-score (:score (s/score-hand (get-in last-tran [:start :player])))
+                dealer-score (:score (s/score-hand dealer))
                 final-result (compare player-score dealer-score)]
             {:transactions (replace-end pl-tran
                                         (assoc last-tran :result final-result))
-             :dealer-cards dealer})
-          {:transactions pl-tran})))))
+             :dealer-cards dealer
+             :points final-result})
+          {:transactions pl-tran
+           :points -1})))))
 
 (defn go
+  ([] (go [1]))
+  ([game-count]
+     (loop [game 0 current-score 0]
+       (let [history (h/get-history)
+             results (play-game history)
+             points (if (map? results)
+                      (:points results)
+                      results)]
+         (do
+           (when (map? results)
+             (h/update-history (:transactions results) @learning-rate))
+           (if (< game game-count)
+             (recur (inc game) (+ current-score points))
+             [game current-score]))))))
+
+
+(defn learning-results
+  [eval-n learn-n]
+  (reset! learning-rate 0.00)
+  (reset! explore-exploit-ratio 1.00)
+  (let [[n score] (go eval-n)]
+    (println "Random results, no learning" (* 100 (/ score n))))
+  (reset! learning-rate 0.00)
+  (reset! explore-exploit-ratio 0.00)
+  (let [[n score] (go eval-n)]
+    (println "Strategy before learning" (* 100 (/ score n))))
+  (reset! learning-rate 0.01)
+  (reset! explore-exploit-ratio 0.7)
+  (let [[n score] (go learn-n)]
+    (println "Results during learning" (* 100 (/ score n))))
+  (reset! explore-exploit-ratio 0.00)
+  (reset! learning-rate 0.001)
+  (let [[n score] (go eval-n)]
+    (println "Results after learning" (* 100 (/ score n)))))
+
+(defn clear-history
   []
-  (-> (h/get-history)
-      (play-game)
-      (:transactions)
-      (h/update-history @learning-rate)))
+  (reset! h/history {}))
+
+
+(defn show-progress
+  [tries]
+  (clear-history)
+  (reset! learning-rate 0.00)
+  (reset! explore-exploit-ratio 0.00)
+  (let [[n score] (go 10000)]
+    (loop [results [(/ score n)] i 0]
+      (if (= tries i)
+        results
+        (do
+          (println (str i " " (last results)))
+          (reset! learning-rate 0.01)
+          (reset! explore-exploit-ratio 0.70)
+          (go 100000)
+          (reset! learning-rate 0.00)
+          (reset! explore-exploit-ratio 0.00)
+          (let [[n score] (go 10000)]
+            (recur (conj results (/ score n)) (inc i))))))))
