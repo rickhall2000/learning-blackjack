@@ -16,3 +16,7 @@
               (do (reset! used #{})
                   (recur))
               :else (recur))))))
+
+(defn deal-hand
+  [deck]
+  [(deck) (deck)])

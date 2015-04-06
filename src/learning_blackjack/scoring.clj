@@ -2,6 +2,11 @@
 
 (def face-card #{:k :q :j})
 
+(def blackjack-return
+  {:both 1
+   :dealer -1
+   :player 1.5})
+
 (defn score-card
   [card]
   (cond (face-card card) 10

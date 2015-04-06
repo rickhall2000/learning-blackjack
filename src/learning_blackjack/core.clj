@@ -1,5 +1,5 @@
 (ns learning-blackjack.core
-  (:require [learning-blackjack.cards :refer [deck]]
+  (:require [learning-blackjack.cards :refer [deck deal-hand]]
             [learning-blackjack.scoring :as s]
             [learning-blackjack.history :as h]))
 
@@ -48,16 +48,9 @@
             (and soft? (= score 17)) (recur (conj hand (hit)))
             :default hand))))
 
-(defn deal-hand
-  [deck]
-  [(deck) (deck)])
+
 
 (def get-up-card first)
-
-(def blackjack-return
-  {:both 1
-   :dealer -1
-   :player 1.5})
 
 (defn replace-end
   [vec new]
@@ -70,7 +63,7 @@
         hands {:dealer (deal-hand deck)
                :player (deal-hand deck)}]
     (if-let [result (s/check-blackjack hands)]
-      (blackjack-return result)
+      (s/blackjack-return result)
       (let [pl-tran (player-turn (h/->player-state
                                    (:player hands)
                                    (get-up-card (:dealer hands)))
@@ -105,46 +98,53 @@
              (recur (inc game) (+ current-score points))
              [game current-score]))))))
 
-
-(defn learning-results
-  [eval-n learn-n]
-  (reset! learning-rate 0.00)
-  (reset! explore-exploit-ratio 1.00)
-  (let [[n score] (go eval-n)]
-    (println "Random results, no learning" (* 100 (/ score n))))
-  (reset! learning-rate 0.00)
-  (reset! explore-exploit-ratio 0.00)
-  (let [[n score] (go eval-n)]
-    (println "Strategy before learning" (* 100 (/ score n))))
-  (reset! learning-rate 0.01)
-  (reset! explore-exploit-ratio 0.7)
-  (let [[n score] (go learn-n)]
-    (println "Results during learning" (* 100 (/ score n))))
-  (reset! explore-exploit-ratio 0.00)
-  (reset! learning-rate 0.001)
-  (let [[n score] (go eval-n)]
-    (println "Results after learning" (* 100 (/ score n)))))
-
 (defn clear-history
   []
   (reset! h/history {}))
 
+(defn learn!
+  []
+  (reset! learning-rate 0.01)
+  (reset! explore-exploit-ratio 0.7))
+
+(defn exploit!
+  []
+  (reset! learning-rate 0.00)
+  (reset! explore-exploit-ratio 0.00))
+
+(defn random-strategy!
+  []
+  (reset! learning-rate 0.00)
+  (reset! explore-exploit-ratio 1.00))
+
+(defn evaluate-strategy
+  [iterations message]
+  (let [[n score] (go iterations)]
+    (println message (* 100 (/ score n)))
+    [n score]))
+
+(defn learning-results
+  [eval-n learn-n]
+  (random-strategy!)
+  (evaluate-strategy eval-n "Random results, no learning")
+  (exploit!)
+  (evaluate-strategy eval-n "Strategy before learning")
+  (learn!)
+  (evaluate-strategy learn-n "Results during learning")
+  (exploit!)
+  (evaluate-strategy eval-n "Strategy after learning"))
 
 (defn show-progress
   [tries]
   (clear-history)
-  (reset! learning-rate 0.00)
-  (reset! explore-exploit-ratio 0.00)
-  (let [[n score] (go 10000)]
+  (exploit!)
+  (let [[n score] (evaluate-strategy 10000 "Initial ")]
     (loop [results [(/ score n)] i 0]
       (if (= tries i)
         results
         (do
-          (println (str i " " (last results)))
-          (reset! learning-rate 0.01)
-          (reset! explore-exploit-ratio 0.70)
+          (learn!)
           (go 100000)
-          (reset! learning-rate 0.00)
-          (reset! explore-exploit-ratio 0.00)
-          (let [[n score] (go 10000)]
+          (exploit!)
+          (let [[n score] (evaluate-strategy 10000 (str i " "))]
             (recur (conj results (/ score n)) (inc i))))))))
