@@ -4,11 +4,7 @@
 
 (def history (atom {}))
 
-(defrecord action-result
-  [start action result])
 
-(defrecord player-state
-  [player dealer])
 
 (defn lookup-history
   [player-state history]
