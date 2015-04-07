@@ -4,8 +4,6 @@
 
 (def history (atom {}))
 
-
-
 (defn lookup-history
   [player-state history]
   (get history player-state +new-state+))
@@ -38,6 +36,9 @@
 (defn update-item
   [{:keys [start action result]} learning-rate]
   (let [prior (lookup-history start @history)
+        result (if (vector? result)
+                 (get-state-score (assoc start :player result) @history)
+                   result)
         expected (get prior action)
         new-score (+ (* (- 1 learning-rate) expected)
                      (* learning-rate result))

@@ -1,8 +1,8 @@
 (ns learning-blackjac.learning
-  (require [learning-blackjack.game]
+  (require [learning-blackjack.game :as g]
            [learning-blackjack.history :as h]))
 
-(comment
+
 (def explore-exploit-ratio (atom 0.5))
 (def learning-rate (atom 0.1))
 
@@ -10,13 +10,11 @@
   []
   (> (rand) @explore-exploit-ratio))
 
-
-
 (defn player-action
-  [player-state history]
+  [player-state]
   (if (exploit?)
-    (h/get-best-action player-state history)
-    (rand-nth (legal-moves player-state))))
+    (h/get-best-action player-state (h/get-history))
+    (rand-nth (g/legal-moves player-state))))
 
 (defn clear-history
   []
@@ -39,11 +37,11 @@
 
 
 (defn go
-  ([] (go [1]))
+  ([] (go 1))
   ([game-count]
-     (loop [game 0 current-score 0]
+     (loop [game 1 current-score 0]
        (let [history (h/get-history)
-             results (play-game history)
+             results (g/play-game player-action)
              points (if (map? results)
                       (:points results)
                       results)]
@@ -85,4 +83,3 @@
           (exploit!)
           (let [[n score] (evaluate-strategy 10000 (str i " "))]
             (recur (conj results (/ score n)) (inc i))))))))
-)
