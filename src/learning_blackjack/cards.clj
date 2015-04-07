@@ -20,3 +20,5 @@
 (defn deal-hand
   [deck]
   [(deck) (deck)])
+
+(def get-up-card first)
