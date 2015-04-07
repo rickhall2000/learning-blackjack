@@ -1,6 +1,8 @@
 (ns learning-blackjac.learning
   (require [learning-blackjack.game :as g]
-           [learning-blackjack.history :as h]))
+           [learning-blackjack.history :as h]
+           [incanter.charts :as chart]
+           [incanter.core :refer [view]]))
 
 
 (def explore-exploit-ratio (atom 0.5))
@@ -22,7 +24,7 @@
 
 (defn learn!
   []
-  (reset! learning-rate 0.01)
+  (reset! learning-rate 0.02)
   (reset! explore-exploit-ratio 0.7))
 
 (defn exploit!
@@ -83,3 +85,15 @@
           (exploit!)
           (let [[n score] (evaluate-strategy 10000 (str i " "))]
             (recur (conj results (/ score n)) (inc i))))))))
+
+(defn ema
+  [data rate]
+  (vector (reductions (fn [a b] (+ (* (- 1 rate) a) (* rate b)))  data)))
+
+(defn graph-progress
+  [n]
+  (let [results (show-progress n)
+        x-axis (range (count results))
+        c (chart/scatter-plot x-axis results)]
+    (view (chart/add-lines c x-axis (ema results 0.1)))
+    results))
